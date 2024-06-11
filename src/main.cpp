@@ -69,6 +69,7 @@ void loop()
 }
 
 // Function to update LED colors based on distance
+// Function to update LED colors based on distance
 void updateLEDs(unsigned int distance, CRGB *leds)
 {
   // Turn off all LEDs if distance is greater than 100cm or if distance is 0 (no reading)
@@ -81,10 +82,18 @@ void updateLEDs(unsigned int distance, CRGB *leds)
     // Calculate the starting LED position for the group of 10 LEDs based on distance
     int ledPosition = map(distance, MIN_DISTANCE, 100, NUM_LEDS - 10, 0); // Inverse mapping
     fill_solid(leds, NUM_LEDS, CRGB::Black);                              // Turn off all LEDs
-    // Turn on a group of 10 LEDs starting from the calculated position
+
+    // Set colors based on LED position
     for (int i = 0; i < 10; i++)
     {
-      leds[ledPosition + i] = CRGB::White; // Set color of LED to white
+      if (ledPosition + i <= 30)
+        leds[ledPosition + i] = CRGB::Red; // Set color of LED to red for positions 0-30
+      else if (ledPosition + i <= 60)
+        leds[ledPosition + i] = CRGB::Blue; // Set color of LED to blue for positions 31-60
+      else if (ledPosition + i <= 120)
+        leds[ledPosition + i] = CRGB::White; // Set color of LED to white for positions 61-120
+      else
+        leds[ledPosition + i] = CHSV(millis() / 10, 255, 255); // Switching color R, G, B
     }
   }
 }
