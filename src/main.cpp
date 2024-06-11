@@ -115,7 +115,7 @@ void moveWhiteLeds(CRGB *leds, unsigned int distance)
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 
   int numLedsToLight = 10;
-  int position = map(distance, 10, 100, 0, NUM_LEDS - numLedsToLight);
+  int position = map(distance, 10, 100, NUM_LEDS - numLedsToLight, 0);
 
   for (int i = position; i < position + numLedsToLight; i++)
   {
