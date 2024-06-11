@@ -77,7 +77,7 @@ void updateLEDs(unsigned int distance, CRGB *leds)
   else
   {
     // Calculate the position for the group of 10 LEDs
-    int ledPosition = map(distance, MIN_DISTANCE, 100, 0, NUM_LEDS - 10);
+    int ledPosition = map(distance, MIN_DISTANCE, 100, NUM_LEDS - 10, 0); // Inverse mapping
     fill_solid(leds, NUM_LEDS, CRGB::Black);
     for (int i = 0; i < 10; i++)
     {
