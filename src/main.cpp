@@ -1,114 +1,124 @@
 #include <Arduino.h>
-#include <FastLED.h> // Library for controlling LED strips
-#include <NewPing.h> // Library for ultrasonic sensors
+#include <FastLED.h>
+#include <NewPing.h>
 
-// LED strip configuration
-#define NUM_LEDS 121 // Number of LEDs in each strip
-#define LED_PIN1 23  // Pin for LED strip 1
-#define LED_PIN2 22  // Pin for LED strip 2
-#define LED_PIN3 21  // Pin for LED strip 3
-#define LED_PIN4 19  // Pin for LED strip 4
+// LED configuration
+#define LED_TYPE WS2812
+#define COLOR_ORDER GRB
+#define NUM_LEDS 121
+#define BRIGHTNESS 120
+#define DENSITY 80
 
-CRGB strip1[NUM_LEDS];
-CRGB strip2[NUM_LEDS];
-CRGB strip3[NUM_LEDS];
-CRGB strip4[NUM_LEDS];
+#define LED_PIN1 23
+#define LED_PIN2 22
+#define LED_PIN3 21
+#define LED_PIN4 19
 
-// Ultrasonic sensor configuration
-#define MAX_DISTANCE 400 // Maximum distance the sensor can measure (in cm)
-#define MIN_DISTANCE 10  // Minimum distance the sensor can measure (in cm)
-#define TRIGGER_PIN1 33  // Trigger pin for sensor 1
-#define ECHO_PIN1 32     // Echo pin for sensor 1
-#define TRIGGER_PIN2 26  // Trigger pin for sensor 2
-#define ECHO_PIN2 25     // Echo pin for sensor 2
-#define TRIGGER_PIN3 14  // Trigger pin for sensor 3
-#define ECHO_PIN3 27     // Echo pin for sensor 3
-#define TRIGGER_PIN4 13  // Trigger pin for sensor 4
-#define ECHO_PIN4 12     // Echo pin for sensor 4
+CRGB leds1[NUM_LEDS];
+CRGB leds2[NUM_LEDS];
+CRGB leds3[NUM_LEDS];
+CRGB leds4[NUM_LEDS];
 
-// Create NewPing objects for each sensor
-NewPing sonar1(TRIGGER_PIN1, ECHO_PIN1, MAX_DISTANCE);
-NewPing sonar2(TRIGGER_PIN2, ECHO_PIN2, MAX_DISTANCE);
-NewPing sonar3(TRIGGER_PIN3, ECHO_PIN3, MAX_DISTANCE);
-NewPing sonar4(TRIGGER_PIN4, ECHO_PIN4, MAX_DISTANCE);
+// Sensor configuration
+#define MAX_DISTANCE 400
 
-// Function prototype
-void updateLEDs(unsigned int distance, CRGB *strip);
+#define TRIG_PIN1 33
+#define ECHO_PIN1 32
+
+#define TRIG_PIN2 26
+#define ECHO_PIN2 25
+
+#define TRIG_PIN3 14
+#define ECHO_PIN3 27
+
+#define TRIG_PIN4 13
+#define ECHO_PIN4 12
+
+NewPing sonar1(TRIG_PIN1, ECHO_PIN1, MAX_DISTANCE);
+NewPing sonar2(TRIG_PIN2, ECHO_PIN2, MAX_DISTANCE);
+NewPing sonar3(TRIG_PIN3, ECHO_PIN3, MAX_DISTANCE);
+NewPing sonar4(TRIG_PIN4, ECHO_PIN4, MAX_DISTANCE);
+
+const CRGB lightcolor(8, 7, 1);
+
+// Function declarations
+void handleSensor(NewPing &sonar, CRGB *leds);
+void softtwinkles(CRGB *leds);
+void moveWhiteLeds(CRGB *leds, unsigned int distance);
 
 void setup()
 {
-  // Initialize LED strips
-  FastLED.addLeds<NEOPIXEL, LED_PIN1>(strip1, NUM_LEDS);
-  FastLED.addLeds<NEOPIXEL, LED_PIN2>(strip2, NUM_LEDS);
-  FastLED.addLeds<NEOPIXEL, LED_PIN3>(strip3, NUM_LEDS);
-  FastLED.addLeds<NEOPIXEL, LED_PIN4>(strip4, NUM_LEDS);
+  FastLED.addLeds<LED_TYPE, LED_PIN1, COLOR_ORDER>(leds1, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  FastLED.addLeds<LED_TYPE, LED_PIN2, COLOR_ORDER>(leds2, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  FastLED.addLeds<LED_TYPE, LED_PIN3, COLOR_ORDER>(leds3, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  FastLED.addLeds<LED_TYPE, LED_PIN4, COLOR_ORDER>(leds4, NUM_LEDS).setCorrection(TypicalLEDStrip);
 
-  // Initialize serial communication for debugging (optional)
-  Serial.begin(115200);
+  FastLED.setBrightness(BRIGHTNESS);
 }
 
 void loop()
 {
-  // Measure distances using ultrasonic sensors
-  unsigned int distance1 = sonar1.ping_cm();
-  unsigned int distance2 = sonar2.ping_cm();
-  unsigned int distance3 = sonar3.ping_cm();
-  unsigned int distance4 = sonar4.ping_cm();
+  handleSensor(sonar1, leds1);
+  handleSensor(sonar2, leds2);
+  handleSensor(sonar3, leds3);
+  handleSensor(sonar4, leds4);
 
-  // Update LED strips based on distances
-  updateLEDs(distance1, strip1);
-  updateLEDs(distance2, strip2);
-  updateLEDs(distance3, strip3);
-  updateLEDs(distance4, strip4);
-
-  // Show the LED patterns
   FastLED.show();
-
-  // Small delay to avoid rapid triggering and update LED patterns smoothly
   delay(100);
 }
 
-// Function to blend between two colors
-CRGB blendColor(CRGB color1, CRGB color2, float t)
+void handleSensor(NewPing &sonar, CRGB *leds)
 {
-  uint8_t r = color1.r + t * (color2.r - color1.r);
-  uint8_t g = color1.g + t * (color2.g - color1.g);
-  uint8_t b = color1.b + t * (color2.b - color1.b);
-  return CRGB(r, g, b);
+  unsigned int distance = sonar.ping_cm();
+
+  if (distance == 0)
+  {
+    distance = MAX_DISTANCE;
+  }
+
+  if (distance > 100)
+  {
+    softtwinkles(leds);
+  }
+  else if (distance >= 10 && distance <= 100)
+  {
+    moveWhiteLeds(leds, distance);
+  }
 }
 
-// Function to update LED colors based on distance
-void updateLEDs(unsigned int distance, CRGB *strip)
+void softtwinkles(CRGB *leds)
 {
-  // Turn off all LEDs if distance is greater than 100cm or if distance is 0 (no reading)
-  if (distance > 100 || distance == 0)
+  for (int i = 0; i < NUM_LEDS; i++)
   {
-    fill_solid(strip, NUM_LEDS, CRGB::Black); // Turn off all LEDs
-  }
-  else
-  {
-    // Calculate the starting LED position for the group of 10 LEDs based on distance
-    int ledPosition = map(distance, MIN_DISTANCE, 100, NUM_LEDS - 10, 0); // Inverse mapping
-    fill_solid(strip, NUM_LEDS, CRGB::Black);                             // Turn off all LEDs
-
-    // Set colors based on LED position
-    for (int i = 0; i < 10; i++)
+    if (!leds[i])
+      continue;
+    if (leds[i].r & 1)
     {
-      int ledIndex = ledPosition + i;
-      if (ledIndex < 60)
-      {
-        float t = ledIndex / 59.0;                            // Scale t to range from 0 to 1 over the first 60 LEDs
-        CRGB color = blendColor(CRGB::Blue, CRGB::Orange, t); // Blend from blue to orange
-        strip[ledIndex] = color;
-      }
-      else if (ledIndex <= 120)
-      {
-        strip[ledIndex] = CRGB::White; // Set color of LED to white for positions 61-120
-      }
-      else
-      {
-        strip[ledIndex] = CRGB::Black; // Default color (black) for any other position
-      }
+      leds[i] -= lightcolor;
     }
+    else
+    {
+      leds[i] += lightcolor;
+    }
+  }
+
+  if (random8() < DENSITY)
+  {
+    int j = random16(NUM_LEDS);
+    if (!leds[j])
+      leds[j] = lightcolor;
+  }
+}
+
+void moveWhiteLeds(CRGB *leds, unsigned int distance)
+{
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+
+  int numLedsToLight = 10;
+  int position = map(distance, 10, 100, 0, NUM_LEDS - numLedsToLight);
+
+  for (int i = position; i < position + numLedsToLight; i++)
+  {
+    leds[i] = CRGB::White;
   }
 }
