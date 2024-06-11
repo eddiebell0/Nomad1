@@ -9,10 +9,10 @@
 #define LED_PIN3 21  // Pin for LED strip 3
 #define LED_PIN4 19  // Pin for LED strip 4
 
-CRGB leds1[NUM_LEDS]; // Array to hold LED colors for strip 1
-CRGB leds2[NUM_LEDS]; // Array to hold LED colors for strip 2
-CRGB leds3[NUM_LEDS]; // Array to hold LED colors for strip 3
-CRGB leds4[NUM_LEDS]; // Array to hold LED colors for strip 4
+CRGB strip1[NUM_LEDS];
+CRGB strip2[NUM_LEDS];
+CRGB strip3[NUM_LEDS];
+CRGB strip4[NUM_LEDS];
 
 // Ultrasonic sensor configuration
 #define MAX_DISTANCE 400 // Maximum distance the sensor can measure (in cm)
@@ -22,7 +22,7 @@ CRGB leds4[NUM_LEDS]; // Array to hold LED colors for strip 4
 #define TRIGGER_PIN2 26  // Trigger pin for sensor 2
 #define ECHO_PIN2 25     // Echo pin for sensor 2
 #define TRIGGER_PIN3 14  // Trigger pin for sensor 3
-#define ECHO_PIN3 2      // Echo pin for sensor 3
+#define ECHO_PIN3 27     // Echo pin for sensor 3
 #define TRIGGER_PIN4 13  // Trigger pin for sensor 4
 #define ECHO_PIN4 12     // Echo pin for sensor 4
 
@@ -33,15 +33,15 @@ NewPing sonar3(TRIGGER_PIN3, ECHO_PIN3, MAX_DISTANCE);
 NewPing sonar4(TRIGGER_PIN4, ECHO_PIN4, MAX_DISTANCE);
 
 // Function prototype
-void updateLEDs(unsigned int distance, CRGB *leds);
+void updateLEDs(unsigned int distance, CRGB *strip);
 
 void setup()
 {
   // Initialize LED strips
-  FastLED.addLeds<NEOPIXEL, LED_PIN1>(leds1, NUM_LEDS);
-  FastLED.addLeds<NEOPIXEL, LED_PIN2>(leds2, NUM_LEDS);
-  FastLED.addLeds<NEOPIXEL, LED_PIN3>(leds3, NUM_LEDS);
-  FastLED.addLeds<NEOPIXEL, LED_PIN4>(leds4, NUM_LEDS);
+  FastLED.addLeds<NEOPIXEL, LED_PIN1>(strip1, NUM_LEDS);
+  FastLED.addLeds<NEOPIXEL, LED_PIN2>(strip2, NUM_LEDS);
+  FastLED.addLeds<NEOPIXEL, LED_PIN3>(strip3, NUM_LEDS);
+  FastLED.addLeds<NEOPIXEL, LED_PIN4>(strip4, NUM_LEDS);
 
   // Initialize serial communication for debugging (optional)
   Serial.begin(115200);
@@ -56,10 +56,10 @@ void loop()
   unsigned int distance4 = sonar4.ping_cm();
 
   // Update LED strips based on distances
-  updateLEDs(distance1, leds1);
-  updateLEDs(distance2, leds2);
-  updateLEDs(distance3, leds3);
-  updateLEDs(distance4, leds4);
+  updateLEDs(distance1, strip1);
+  updateLEDs(distance2, strip2);
+  updateLEDs(distance3, strip3);
+  updateLEDs(distance4, strip4);
 
   // Show the LED patterns
   FastLED.show();
@@ -68,32 +68,47 @@ void loop()
   delay(100);
 }
 
+// Function to blend between two colors
+CRGB blendColor(CRGB color1, CRGB color2, float t)
+{
+  uint8_t r = color1.r + t * (color2.r - color1.r);
+  uint8_t g = color1.g + t * (color2.g - color1.g);
+  uint8_t b = color1.b + t * (color2.b - color1.b);
+  return CRGB(r, g, b);
+}
+
 // Function to update LED colors based on distance
-// Function to update LED colors based on distance
-void updateLEDs(unsigned int distance, CRGB *leds)
+void updateLEDs(unsigned int distance, CRGB *strip)
 {
   // Turn off all LEDs if distance is greater than 100cm or if distance is 0 (no reading)
   if (distance > 100 || distance == 0)
   {
-    fill_solid(leds, NUM_LEDS, CRGB::Black); // Turn off all LEDs
+    fill_solid(strip, NUM_LEDS, CRGB::Black); // Turn off all LEDs
   }
   else
   {
     // Calculate the starting LED position for the group of 10 LEDs based on distance
     int ledPosition = map(distance, MIN_DISTANCE, 100, NUM_LEDS - 10, 0); // Inverse mapping
-    fill_solid(leds, NUM_LEDS, CRGB::Black);                              // Turn off all LEDs
+    fill_solid(strip, NUM_LEDS, CRGB::Black);                             // Turn off all LEDs
 
     // Set colors based on LED position
     for (int i = 0; i < 10; i++)
     {
-      if (ledPosition + i <= 30)
-        leds[ledPosition + i] = CRGB::Red; // Set color of LED to red for positions 0-30
-      else if (ledPosition + i <= 60)
-        leds[ledPosition + i] = CRGB::Blue; // Set color of LED to blue for positions 31-60
-      else if (ledPosition + i <= 120)
-        leds[ledPosition + i] = CRGB::White; // Set color of LED to white for positions 61-120
+      int ledIndex = ledPosition + i;
+      if (ledIndex < 60)
+      {
+        float t = ledIndex / 59.0;                            // Scale t to range from 0 to 1 over the first 60 LEDs
+        CRGB color = blendColor(CRGB::Blue, CRGB::Orange, t); // Blend from blue to orange
+        strip[ledIndex] = color;
+      }
+      else if (ledIndex <= 120)
+      {
+        strip[ledIndex] = CRGB::White; // Set color of LED to white for positions 61-120
+      }
       else
-        leds[ledPosition + i] = CHSV(millis() / 10, 255, 255); // Switching color R, G, B
+      {
+        strip[ledIndex] = CRGB::Black; // Default color (black) for any other position
+      }
     }
   }
 }
